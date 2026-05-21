@@ -1,14 +1,51 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
-        display: ["'Playfair Display'", 'serif'],
-        body: ["'DM Sans'", 'sans-serif'],
+        display: ["'Inter'", 'sans-serif'],
+        body: ["'Inter'", 'sans-serif'],
         mono: ["'DM Mono'", 'monospace'],
       },
       colors: {
+        navy: {
+          50: '#F0F4F8',
+          100: '#D9E2F0',
+          200: '#B3C5E1',
+          300: '#8DA8D2',
+          400: '#678BC3',
+          500: '#0F172A',
+          600: '#0D1425',
+          700: '#0B0D1F',
+          800: '#070919',
+          900: '#030410',
+        },
+        gold: {
+          50: '#FFFDF5',
+          100: '#FFFBEB',
+          200: '#FEF5D6',
+          300: '#FDD89F',
+          400: '#FCBB66',
+          500: '#D4AF37',
+          600: '#A8862D',
+          700: '#7C5F23',
+          800: '#503719',
+          900: '#2D200F',
+        },
+        warm: {
+          50: '#FAFAF8',
+          100: '#F3F4F6',
+          200: '#E7E8EA',
+          300: '#DDDEE2',
+          400: '#C5C7CC',
+          500: '#9DA0A8',
+          600: '#757A83',
+          700: '#4D5059',
+          800: '#2D303A',
+          900: '#151619',
+        },
         stone: {
           50: '#fafaf9',
           100: '#f5f5f4',
@@ -34,10 +71,15 @@ export default {
           900: '#78350f',
         },
       },
+      backdropBlur: {
+        glass: '10px',
+      },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',
         'slide-up': 'slideUp 0.4s ease-out',
+        'slide-down': 'slideDown 0.4s ease-out',
         shimmer: 'shimmer 1.5s infinite',
+        'pulse-subtle': 'pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn: { from: { opacity: 0 }, to: { opacity: 1 } },
@@ -45,9 +87,17 @@ export default {
           from: { opacity: 0, transform: 'translateY(20px)' },
           to: { opacity: 1, transform: 'translateY(0)' },
         },
+        slideDown: {
+          from: { opacity: 0, transform: 'translateY(-20px)' },
+          to: { opacity: 1, transform: 'translateY(0)' },
+        },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
+        },
+        pulseSubtle: {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.8 },
         },
       },
     },

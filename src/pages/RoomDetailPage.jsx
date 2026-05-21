@@ -1,10 +1,22 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { roomsAPI, bookingsAPI } from "../services/api";
-import { useAuth } from "../context/AuthContext";
-import { Button, Badge, Spinner } from "../components/common";
-import { ROOM_TYPE_ICONS } from "../constants/roomTypes";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import { bookingsAPI, roomsAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import { Spinner } from "../components/common";
+
+const demoRooms = [
+  { _id: "demo-aurora", roomNumber: 1204, roomType: "Presidential Suite", pricePerNight: 520, status: "Available" },
+  { _id: "demo-maison", roomNumber: 905, roomType: "Executive Room", pricePerNight: 342, status: "Available" },
+  { _id: "demo-bleu", roomNumber: 711, roomType: "Deluxe", pricePerNight: 245, status: "Available" },
+];
+
+const gallery = [
+  "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=900&q=80",
+];
 
 export default function RoomDetailPage() {
   const { id } = useParams();
@@ -14,34 +26,39 @@ export default function RoomDetailPage() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState({ checkIn: "", checkOut: "" });
   const [submitting, setSubmitting] = useState(false);
-  const [nights, setNights] = useState(0);
 
   useEffect(() => {
     roomsAPI.getAll()
       .then(({ data }) => {
         const list = data.rooms || data;
-        const found = list.find(r => r._id === id);
+        const found = list.find((item) => item._id === id) || demoRooms.find((item) => item._id === id);
         setRoom(found || null);
       })
-      .catch(() => toast.error("Could not load room details"))
+      .catch(() => setRoom(demoRooms.find((item) => item._id === id) || demoRooms[0]))
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => {
-    if (booking.checkIn && booking.checkOut) {
-      const diff = (new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24);
-      setNights(Math.max(0, diff));
-    }
+  const nights = useMemo(() => {
+    if (!booking.checkIn || !booking.checkOut) return 0;
+    const diff = (new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24);
+    return Math.max(0, diff);
   }, [booking]);
 
+  const total = room && nights ? room.pricePerNight * nights : 0;
+
   const handleBook = async () => {
-    if (!user) { navigate("/login"); return; }
-    if (!booking.checkIn || !booking.checkOut) { toast.error("Please select check-in and check-out dates"); return; }
-    if (nights <= 0) { toast.error("Check-out must be after check-in"); return; }
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    if (!booking.checkIn || !booking.checkOut || nights <= 0) {
+      toast.error("Select valid check-in and check-out dates");
+      return;
+    }
     setSubmitting(true);
     try {
       const { data } = await bookingsAPI.create({ roomId: id, checkIn: booking.checkIn, checkOut: booking.checkOut });
-      toast.success("Booking created! Proceeding to payment…");
+      toast.success("Booking created. Continue to secure payment.");
       navigate(`/payment/${data._id || data.booking?._id}`);
     } catch (err) {
       toast.error(err.response?.data?.message || "Booking failed");
@@ -51,130 +68,121 @@ export default function RoomDetailPage() {
   };
 
   if (loading) return <div className="flex justify-center py-32"><Spinner size="lg" /></div>;
-  if (!room) return (
-    <div className="text-center py-32">
-      <p className="font-display text-2xl text-stone-700 mb-4">Room not found</p>
-      <Link to="/rooms" className="font-body text-amber-600 hover:underline">← Back to rooms</Link>
-    </div>
-  );
+
+  if (!room) {
+    return (
+      <div className="min-h-[70vh] bg-[#f7f5f0] px-4 py-32 text-center">
+        <h1 className="font-body text-4xl font-black text-slate-950">Room not found</h1>
+        <Link to="/rooms" className="mt-5 inline-flex rounded-2xl bg-slate-950 px-6 py-3 text-sm font-black text-amber-300">Back to rooms</Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-stone-50 animate-fade-in">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 font-body text-sm text-stone-400 mb-8">
-          <Link to="/" className="hover:text-stone-700">Home</Link>
+    <div className="min-h-screen bg-[#f7f5f0]">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-wrap items-center gap-2 text-sm font-bold text-slate-500">
+          <Link to="/" className="hover:text-slate-950">Home</Link>
           <span>/</span>
-          <Link to="/rooms" className="hover:text-stone-700">Rooms</Link>
+          <Link to="/rooms" className="hover:text-slate-950">Rooms</Link>
           <span>/</span>
-          <span className="text-stone-700">Room {room.roomNumber}</span>
+          <span className="text-slate-950">{room.roomType}</span>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left: Room info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Image */}
-            <img src="../assets/room1.avif" alt={`Room ${room.roomNumber}`} className="w-full h-80 object-cover rounded-sm shadow-sm" />
-            <div className="h-80 bg-gradient-to-br from-stone-200 to-stone-300 rounded-sm overflow-hidden relative flex items-center justify-center">
-              <span className="text-9xl opacity-20">{ROOM_TYPE_ICONS[room.roomType] || "🏨"}</span>
-              <div className="absolute top-4 left-4 flex gap-2">
-                <Badge variant={room.status === "Available" ? "success" : "danger"}>
-                  {room.status === "Available" ? "Available" : room.status}
-                </Badge>
-                <span className="bg-white/90 text-stone-700 text-xs font-body px-2.5 py-1 rounded-full">#{room.roomNumber}</span>
-              </div>
-            </div>
-
-            {/* Details */}
-            <div className="bg-white border border-stone-100 rounded-sm p-7">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="font-display text-3xl text-stone-900">{room.roomType}</h1>
-                  <p className="font-body text-stone-500 mt-1">Room #{room.roomNumber}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-display text-3xl text-stone-900">${room.pricePerNight}</p>
-                  <p className="font-body text-xs text-stone-400">per night</p>
-                </div>
-              </div>
-
-              <hr className="border-stone-100 my-5" />
-
-              <h3 className="font-body font-medium text-stone-800 mb-3 text-sm uppercase tracking-wide">Amenities</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {["Free Wi-Fi", "Air Conditioning", "Flat-screen TV", "Mini Bar", "Room Service", "Safe", "Hair Dryer", "Premium Toiletries", "Daily Housekeeping"].map(a => (
-                  <div key={a} className="flex items-center gap-2 font-body text-sm text-stone-600">
-                    <span className="text-amber-500">✓</span> {a}
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div>
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.24em] text-amber-600">Image gallery and availability</p>
+            <h1 className="font-body text-5xl font-black leading-tight tracking-normal text-slate-950 md:text-7xl">{room.roomType}</h1>
+            <p className="mt-3 text-lg font-semibold text-slate-500">Room #{room.roomNumber} at Aurora Grand Kigali</p>
           </div>
-
-          {/* Right: Booking */}
-          <div className="lg:col-span-1">
-            <div className="bg-white border border-stone-100 rounded-sm p-6 sticky top-24 shadow-sm">
-              <h2 className="font-display text-xl text-stone-900 mb-5">Book This Room</h2>
-
-              {room.status === "Available" ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block font-body text-xs text-stone-500 mb-1.5 uppercase tracking-wide">Check-in Date</label>
-                    <input
-                      type="date"
-                      min={new Date().toISOString().split("T")[0]}
-                      value={booking.checkIn}
-                      onChange={e => setBooking(p => ({ ...p, checkIn: e.target.value }))}
-                      className="w-full border border-stone-200 rounded-sm px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-body text-xs text-stone-500 mb-1.5 uppercase tracking-wide">Check-out Date</label>
-                    <input
-                      type="date"
-                      min={booking.checkIn || new Date().toISOString().split("T")[0]}
-                      value={booking.checkOut}
-                      onChange={e => setBooking(p => ({ ...p, checkOut: e.target.value }))}
-                      className="w-full border border-stone-200 rounded-sm px-4 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-stone-900"
-                    />
-                  </div>
-
-                  {nights > 0 && (
-                    <div className="bg-stone-50 border border-stone-100 rounded-sm p-4 space-y-2">
-                      <div className="flex justify-between font-body text-sm text-stone-600">
-                        <span>${room.pricePerNight} × {nights} night{nights !== 1 ? "s" : ""}</span>
-                        <span>${room.pricePerNight * nights}</span>
-                      </div>
-                      <hr className="border-stone-200" />
-                      <div className="flex justify-between font-body font-medium text-stone-900">
-                        <span>Total</span>
-                        <span>${room.pricePerNight * nights}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button fullWidth onClick={handleBook} loading={submitting} variant="primary" size="lg">
-                    {user ? "Book Now" : "Sign In to Book"}
-                  </Button>
-
-                  {!user && (
-                    <p className="font-body text-xs text-stone-400 text-center">
-                      <Link to="/login" className="text-amber-600 hover:underline">Login</Link> or{" "}
-                      <Link to="/register" className="text-amber-600 hover:underline">register</Link> to book
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-4xl mb-3">🚫</p>
-                  <p className="font-body text-stone-600 text-sm">This room is currently not available.</p>
-                  <Link to="/rooms" className="mt-4 inline-block font-body text-sm text-amber-600 hover:underline">View other rooms →</Link>
-                </div>
-              )}
-            </div>
+          <div className="rounded-[2rem] border border-white/70 bg-white/80 p-5 text-right shadow-xl shadow-slate-900/5">
+            <p className="font-body text-4xl font-black text-slate-950">${room.pricePerNight}</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">per night</p>
           </div>
         </div>
-      </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_.6fr]">
+          <img src={gallery[0]} alt={`${room.roomType} hero`} className="h-[28rem] w-full rounded-[2rem] object-cover shadow-2xl shadow-slate-900/10" />
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            {gallery.slice(1).map((image) => (
+              <img key={image} src={image} alt="Room gallery" className="h-36 w-full rounded-[1.5rem] object-cover shadow-xl shadow-slate-900/5 lg:h-[8.65rem]" />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <main className="mx-auto grid max-w-7xl gap-7 px-4 pb-16 sm:px-6 lg:grid-cols-[1fr_24rem] lg:px-8">
+        <section className="space-y-7">
+          <article className="rounded-[2rem] border border-white/70 bg-white/85 p-7 shadow-xl shadow-slate-900/5 backdrop-blur-xl">
+            <div className="grid gap-5 md:grid-cols-3">
+              {[
+                ["4.97", "guest rating"],
+                ["2,184", "verified reviews"],
+                ["3 rooms", "left at this rate"],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-3xl bg-slate-50 p-5">
+                  <p className="font-body text-3xl font-black text-slate-950">{value}</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-7 text-lg leading-8 text-slate-600">
+              A premium hospitality experience with executive lounge access, soft blue interiors, rainfall shower, blackout comfort, fast Wi-Fi, and flexible checkout built for high-value guests.
+            </p>
+          </article>
+
+          <article className="rounded-[2rem] border border-white/70 bg-white/85 p-7 shadow-xl shadow-slate-900/5 backdrop-blur-xl">
+            <h2 className="font-body text-2xl font-black text-slate-950">Availability calendar</h2>
+            <div className="mt-5 grid grid-cols-7 gap-2">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day} className="text-center text-xs font-black uppercase text-slate-400">{day}</span>)}
+              {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((day) => (
+                <button key={day} className={`h-12 rounded-2xl border text-sm font-black ${[10, 11, 12].includes(day) ? "border-slate-950 bg-slate-950 text-white" : day === 16 ? "border-slate-200 bg-slate-100 text-slate-300 line-through" : "border-slate-200 bg-white text-slate-700"}`}>
+                  {day}
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="rounded-[2rem] border border-white/70 bg-white/85 p-7 shadow-xl shadow-slate-900/5 backdrop-blur-xl">
+            <h2 className="font-body text-2xl font-black text-slate-950">Premium amenities</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {["Executive lounge", "Airport transfer", "Rainfall shower", "Spa access", "Smart workspace", "Daily housekeeping", "Secure payment", "Flexible cancellation", "Concierge support"].map((item) => (
+                <div key={item} className="rounded-2xl border border-slate-100 bg-white p-4 text-sm font-bold text-slate-600">{item}</div>
+              ))}
+            </div>
+          </article>
+        </section>
+
+        <aside className="h-fit rounded-[2rem] border border-white/70 bg-white/90 p-6 shadow-2xl shadow-slate-900/10 backdrop-blur-xl lg:sticky lg:top-24">
+          <h2 className="font-body text-2xl font-black text-slate-950">Reserve this room</h2>
+          <div className="mt-5 space-y-4">
+            <label className="block">
+              <span className="mb-2 block text-xs font-black uppercase tracking-widest text-slate-500">Check in</span>
+              <input type="date" value={booking.checkIn} min={new Date().toISOString().split("T")[0]} onChange={(event) => setBooking((current) => ({ ...current, checkIn: event.target.value }))} className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm font-semibold outline-none focus:border-amber-400" />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-black uppercase tracking-widest text-slate-500">Check out</span>
+              <input type="date" value={booking.checkOut} min={booking.checkIn || new Date().toISOString().split("T")[0]} onChange={(event) => setBooking((current) => ({ ...current, checkOut: event.target.value }))} className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm font-semibold outline-none focus:border-amber-400" />
+            </label>
+
+            <div className="rounded-3xl bg-slate-50 p-5">
+              <div className="flex justify-between text-sm font-semibold text-slate-500">
+                <span>${room.pricePerNight} x {nights || 0} nights</span>
+                <span>${total}</span>
+              </div>
+              <div className="mt-4 flex justify-between border-t border-slate-200 pt-4 font-body text-xl font-black text-slate-950">
+                <span>Total</span>
+                <span>${total}</span>
+              </div>
+            </div>
+
+            <button onClick={handleBook} disabled={submitting || room.status !== "Available"} className="h-13 w-full rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-200 px-5 py-4 text-sm font-black text-slate-950 shadow-xl shadow-amber-900/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50">
+              {submitting ? "Creating booking..." : user ? "Continue to secure checkout" : "Sign in to book"}
+            </button>
+            <p className="text-center text-xs font-semibold text-slate-400">Encrypted checkout, instant confirmation, and receipt included.</p>
+          </div>
+        </aside>
+      </main>
     </div>
   );
 }
